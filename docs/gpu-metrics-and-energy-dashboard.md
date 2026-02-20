@@ -7,42 +7,26 @@ Bu repository içinde GPU metriklerini toplayan bir Helm values, ServiceMonitor 
 - İncelenen ana dosya: `docs/rancher-2.13.1-prometheus-ha-best-practices.md`
 - Sonuç: GPU metrikleri (DCGM/NVIDIA) ile ilgili bir toplama kuralı bu repoda tanımlı değil.
 
-## 30 dakika için görülen değerler mantıklı mı?
+## GPU enerji hesabı için önerilen metrik
 
-Kısa cevap: **Hayır, paylaşılan büyüklükler büyük olasılıkla hatalı/şişkin.**
+Ayrı dashboard için aşağıdaki metrik tercih edilmelidir:
 
-Örnek hızlı üst sınır kontrolü:
-- 8 GPU x 700W x 0.5 saat ≈ **2.8 kWh / node**
-- 10 node için bile ≈ **28 kWh / 30 dk**
+- `DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` (genellikle **mJ** cinsinden monoton artan sayaç)
 
-`280921 kWh / 30 dk` ölçeği fiziksel olarak gerçekçi değildir. En yaygın nedenler:
+Seçili zaman aralığındaki tüketim (kWh):
 
-1. Aynı GPU serisinin birden fazla kez scrape edilmesi (replica/federation/remote-read)
-2. Yanlış metrik tipi veya birim varsayımı
-3. Label kırılımında node etiketinin boş kalması
+```promql
+increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION[$__range]) / 3.6e9
+```
 
-## Kullanılan metrik ve formül
+> Not: Eğer bu metrik yoksa `DCGM_FI_DEV_POWER_USAGE` (W) üzerinden integral yaklaşımıyla yaklaşık enerji hesaplanabilir; ancak sayaç metrik kadar doğru/kolay değildir.
 
-- Metrik: `DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` (genellikle mJ sayaç)
-- Formül: `increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION[$__range]) / 3.6e9` (kWh)
+## Eklenen dashboard
 
-## Bu revizyonda conflict ve uyumluluk için yapılanlar
+`dashboards/gpu-energy-consumption-dashboard.json` dosyası eklendi. Dashboard, seçili zaman aralığına göre enerji tüketimini şu kırılımlarda **tablo** olarak verir:
 
-- Sorgularda gereksiz subquery kullanımı (`[$__range:]`) kaldırıldı, standart `[$__range]` kullanıldı.
-- Tekilleştirme yaklaşımı korunarak `(node, UUID)` bazında `max by` ile mükerrer seri etkisi azaltıldı.
-- Node label fallback sırası korundu: `kubernetes_node` -> `Hostname` -> `instance`.
-- GPU panel legend alanı normalize `node` etiketine geçirildi.
+1. **Total** (tüm cluster)
+2. **Node bazlı**
+3. **GPU bazlı** (node + gpu + UUID)
 
-## Dashboard kapsamı
-
-`dashboards/gpu-energy-consumption-dashboard.json` aşağıdaki görünümü sunar:
-
-1. Toplam enerji (Total)
-2. Node bazlı tablo
-3. GPU bazlı tablo (Node + GPU + UUID)
-
-## Best-practice kontrol listesi
-
-- Aynı UUID’nin aynı anda kaç seri ürettiğini doğrulayın.
-- Önce tek job filtresi ile ölçüm alın, sonra genişletin.
-- Büyük sapmada Prometheus UI’da job/instance kırılımı ile karşılaştırın.
+Bu dashboard mevcut Grafana'ya import edilerek doğrudan kullanılabilir. Gerekirse label adları (`kubernetes_node`, `gpu`, `UUID`) ortamınızdaki gerçek label setine göre düzenlenmelidir.

@@ -35,7 +35,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "decimals": 2,
+          "decimals": 4,
           "unit": "kWh"
         },
         "overrides": []
@@ -67,15 +67,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(max by (node, UUID) (increase((label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"kubernetes_node\", \"(.+)\") or label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"Hostname\", \"(.+)\") or label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"instance\", \"([^:]+).*\"))[$__range]))) / 3.6e9",
+          "expr": "sum(increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}[$__range])) / 3.6e9",
           "legendFormat": "Total",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Toplam GPU Enerji (Seçili Aralık)",
-      "type": "stat",
-      "description": "Aynı GPU serisinin birden fazla scrape/replica ile mükerrer gelmesini engellemek için (node,UUID) bazında max ile tekilleştirilir. Sorgular, gereksiz subquery kullanımı kaldırılarak sadeleştirildi."
+      "title": "Seçili Aralık Toplam GPU Enerji (kWh)",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -84,7 +83,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "decimals": 2,
+          "decimals": 4,
           "unit": "kWh"
         },
         "overrides": []
@@ -118,14 +117,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (node) (max by (node, UUID) (increase((label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"kubernetes_node\", \"(.+)\") or label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"Hostname\", \"(.+)\") or label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"instance\", \"([^:]+).*\"))[$__range]))) / 3.6e9",
+          "expr": "sum by (kubernetes_node) (increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}[$__range])) / 3.6e9",
           "format": "table",
-          "legendFormat": "{{node}}",
+          "legendFormat": "{{kubernetes_node}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node Bazlı GPU Enerji",
+      "title": "Node Bazlı GPU Enerji Tüketimi (kWh)",
       "transformations": [
         {
           "id": "organize",
@@ -134,18 +133,17 @@
               "Time": true
             },
             "indexByName": {
-              "node": 0,
-              "Value": 1
+              "Value": 1,
+              "kubernetes_node": 0
             },
             "renameByName": {
-              "node": "Node",
-              "Value": "Energy (kWh)"
+              "Value": "Energy (kWh)",
+              "kubernetes_node": "Node"
             }
           }
         }
       ],
-      "type": "table",
-      "description": "Node etiketi öncelik sırası: kubernetes_node > Hostname > instance"
+      "type": "table"
     },
     {
       "datasource": {
@@ -154,7 +152,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "decimals": 2,
+          "decimals": 4,
           "unit": "kWh"
         },
         "overrides": []
@@ -188,14 +186,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max by (node, gpu, UUID) (increase((label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"kubernetes_node\", \"(.+)\") or label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"Hostname\", \"(.+)\") or label_replace(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}, \"node\", \"$1\", \"instance\", \"([^:]+).*\"))[$__range])) / 3.6e9",
+          "expr": "sum by (kubernetes_node, gpu, UUID) (increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{job=~\"$job\"}[$__range])) / 3.6e9",
           "format": "table",
-          "legendFormat": "{{node}} / gpu{{gpu}} / {{UUID}}",
+          "legendFormat": "{{kubernetes_node}} / gpu{{gpu}} / {{UUID}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "GPU Bazlı Enerji",
+      "title": "GPU Bazlı Enerji Tüketimi (kWh)",
       "transformations": [
         {
           "id": "organize",
@@ -204,22 +202,21 @@
               "Time": true
             },
             "indexByName": {
-              "node": 0,
-              "gpu": 1,
               "UUID": 2,
-              "Value": 3
+              "Value": 3,
+              "gpu": 1,
+              "kubernetes_node": 0
             },
             "renameByName": {
-              "node": "Node",
-              "gpu": "GPU",
               "UUID": "GPU UUID",
-              "Value": "Energy (kWh)"
+              "Value": "Energy (kWh)",
+              "gpu": "GPU",
+              "kubernetes_node": "Node"
             }
           }
         }
       ],
-      "type": "table",
-      "description": "Her GPU için tekilleştirilmiş enerji tüketimi. Node etiketi normalize edilmiştir. Sorgular, gereksiz subquery kullanımı kaldırılarak sadeleştirildi."
+      "type": "table"
     }
   ],
   "refresh": "30s",
@@ -286,8 +283,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "GPU Energy Consumption - Clean View",
+  "title": "GPU Energy Consumption (Total / Node / GPU)",
   "uid": "gpu-energy-consumption",
-  "version": 3,
+  "version": 1,
   "weekStart": ""
 }
